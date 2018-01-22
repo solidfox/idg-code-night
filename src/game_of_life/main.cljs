@@ -1,5 +1,7 @@
 (ns game-of-life.main
-  (:require [reagent.core :refer [render-component]]
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [reagent.core :refer [render]]
+            [cljs.core.async :refer [<! chan]]
             [game-of-life.core :refer [create-state
                                        next-generation
                                        toggle-alive
@@ -9,51 +11,41 @@
 
 (enable-console-print!)
 
+(defn handle-event [state-timeline {name :name data :data}]
+  (println "Name" name data)
+  (cond (= name :next-generation)
+        (conj state-timeline (next-generation (first state-timeline)))
+
+        (= name :cell-click)
+        (conj state-timeline (toggle-alive (first state-timeline) data))
+
+        (= name :prev-generation)
+        (drop 1 state-timeline)
+
+        (= name :cell-enter)
+        (let [[head & tail] state-timeline]
+          (conj tail (hover head data)))
+
+        (= name :cell-leave)
+        (let [[head & tail] state-timeline]
+          (conj tail (unhover head data)))
+        ))
+
+(defn render! [state event-chan]
+  (render [app-component {:state      state
+                          :event-chan event-chan}]
+                    (js/document.getElementById "app")))
+
+(defn event-loop [state-timeline, event-chan]
+  (render! (first state-timeline) event-chan)
+  (go (event-loop
+    (handle-event state-timeline (<! event-chan))
+    event-chan)))
+
 (def initial-state (create-state ""
                                  "###  "
                                  "  ###"
                                  " ### "
                                  "  #  "))
 
-(defonce app-state-atom (atom (list initial-state)))
-
-(defn handle-event! [{name :name data :data}]
-
-  (println "Name" name data)
-  (cond (= name :next-generation)
-        (swap! app-state-atom (fn [app-state]
-                                (conj app-state (next-generation (first app-state)))))
-
-        (= name :cell-click)
-        (swap! app-state-atom (fn [app-state]
-                                (conj app-state (toggle-alive (first app-state) data))))
-
-        (= name :prev-generation)
-        (when (> (count @app-state-atom) 1)
-          (swap! app-state-atom (fn [app-state] (drop 1 app-state))))
-
-        (= name :cell-enter)
-        (swap! app-state-atom (fn [[head & tail]]
-                                (conj tail (hover head data))))
-
-        (= name :cell-enter)
-        (swap! app-state-atom (fn [[head & tail]]
-                                (conj tail (hover head data))))
-
-        (= name :cell-leave)
-        (swap! app-state-atom (fn [[head & tail]]
-                                (conj tail (unhover head data))))
-        ))
-
-(defn render! []
-  (render-component [app-component {:state         (first @app-state-atom)
-                                    :trigger-event handle-event!}]
-                    (js/document.getElementById "app")))
-
-(add-watch app-state-atom
-           :main-watch
-           (fn [_ _ old-state new-state]
-             (when (not= old-state new-state)
-               (render!))))
-
-(render!)
+(go (event-loop (list initial-state) (chan)))

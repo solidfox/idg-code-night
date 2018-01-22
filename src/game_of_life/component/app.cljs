@@ -1,15 +1,16 @@
 (ns game-of-life.component.app
-  (:require [game-of-life.core :refer [cell-alive? cell-hovered?]]))
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [game-of-life.core :refer [cell-alive? cell-hovered?]]
+            [cljs.core.async :refer [>!]]))
 
-(defn create-cell [coordinates state viewport-size trigger-event]
+(defn create-cell [coordinates state viewport-size event-chan]
   [:div {:key            (first coordinates)
-         :on-mouse-enter (fn [] (trigger-event {:name :cell-enter
-                                                :data coordinates}))
-         :on-mouse-leave (fn [] (trigger-event {:name :cell-leave
-                                                :data coordinates}))
-         :on-click       (fn []
-                           (trigger-event {:name :cell-click
-                                           :data coordinates}))
+         :on-mouse-enter (fn [] (go (>! event-chan {:name :cell-enter
+                                                :data coordinates})))
+         :on-mouse-leave (fn [] (go (>! event-chan {:name :cell-leave
+                                                :data coordinates})))
+         :on-click       (fn [] (go (>! event-chan {:name :cell-click
+                                           :data coordinates})))
          :style          {:position         "relative"
                           :display          "inline-block"
                           :width            (str (/ 100 viewport-size) "%")
@@ -34,26 +35,26 @@
                                       true
                                       "scale(0)")}}]])
 
-(defn create-cell-row [y state viewport-width trigger-event]
+(defn create-cell-row [y state viewport-width event-chan]
   (println (str "Create row of width " viewport-width))
   [:div {:class "row"
          :key   y
          :style {:display "flex"}}
-   (map (fn [x] (create-cell [x y] state viewport-width trigger-event)) (range viewport-width))])
+   (map (fn [x] (create-cell [x y] state viewport-width event-chan)) (range viewport-width))])
 
-(defn app-component [{state         :state
-                      trigger-event :trigger-event}]
+(defn app-component [{state      :state
+                      event-chan :event-chan}]
   [:div
    [:h1 {:style {:text-align "center"}}
     "Game of life"]
    [:div
     (let [viewport-height 10
           viewport-width 10]
-      (map (fn [y] (create-cell-row y state viewport-width trigger-event))
+      (map (fn [y] (create-cell-row y state viewport-width event-chan))
            (range viewport-height)))]
    [:button {:on-click (fn []
-                         (trigger-event {:name :prev-generation}))}
+                         (go (>! event-chan {:name :prev-generation})))}
     "PREV"]
    [:button {:on-click (fn []
-                         (trigger-event {:name :next-generation}))}
+                         (go (>! event-chan {:name :next-generation})))}
     "NEXT"]])
