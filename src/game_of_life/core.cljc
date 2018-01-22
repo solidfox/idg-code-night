@@ -90,17 +90,34 @@
                               "  # ")
                 {:living-cells #{[1 0]
                                  [0 1] [1 1] [2 1] [3 1]
-                                 [2 2]}}))}
+                                 [2 2]}
+                 :hovered-cells #{}})
+           (is= (create-state " *  "
+                              "****"
+                              "  * ")
+                {:living-cells  #{}
+                 :hovered-cells #{[1 0]
+                                  [0 1] [1 1] [2 1] [3 1]
+                                  [2 2]}}))}
   [& strings]
-  {:living-cells (->> strings
-                      (map-indexed (fn [y string]
-                                     (map-indexed (fn [x character]
-                                                    (when (= character \#)
-                                                      [x y]))
-                                                  string)))
-                      (apply concat)
-                      (remove nil?)
-                      (into #{}))})
+  {:living-cells  (->> strings
+                       (map-indexed (fn [y string]
+                                      (map-indexed (fn [x character]
+                                                     (when (= character \#)
+                                                       [x y]))
+                                                   string)))
+                       (apply concat)
+                       (remove nil?)
+                       (into #{}))
+   :hovered-cells (->> strings
+                       (map-indexed (fn [y string]
+                                      (->> string
+                                           (map-indexed (fn [x character]
+                                                          (when (= character \*)
+                                                            [x y]))))))
+                       (apply concat)
+                       (remove nil?)
+                       (into #{}))})
 
 (defn neighbours-of
   "Returns a set of all cells that are neighbours to the given cell."
@@ -114,6 +131,18 @@
        (map (fn [direction]
               (map + cell direction)))
        (into #{})))
+
+(defn cell-hovered?
+  "Determines if the given cell is hovered."
+  {:test (fn []
+           (let [state (create-state "##"
+                                     " *")]
+             (is (cell-hovered? state [1 1]))
+             (is-not (cell-hovered? state [1 0]))
+             (is-not (cell-hovered? state [0 0]))
+             (is-not (cell-hovered? state [0 1]))))}
+  [state cell]
+  (contains? (:hovered-cells state) cell))
 
 (defn cell-alive?
   "Determines if the given cell is alive."
@@ -179,13 +208,13 @@
 
 
 
-(defn toggle-cell
+(defn toggle-alive
   {:test (fn []
            (is (-> (create-state "")
-                   (toggle-cell [0 0])
+                   (toggle-alive [0 0])
                    (cell-alive? [0 0])))
            (is-not (-> (create-state "#")
-                       (toggle-cell [0 0])
+                       (toggle-alive [0 0])
                        (cell-alive? [0 0]))))}
   [state cell]
   (update state :living-cells
@@ -194,7 +223,26 @@
               (clojure.set/difference living-cells #{cell})
               (conj living-cells cell)))))
 
+(defn unhover
+  {:test (fn []
+           (is-not (-> (create-state "*")
+                       (unhover [0 0])
+                       (cell-hovered? [0 0]))))}
+  [state cell]
+  (println "Unhovering")
+  (update state :hovered-cells
+          (fn [hovered-cells]
+            (clojure.set/difference hovered-cells #{cell}))))
 
+(defn hover
+  {:test (fn []
+           (is (-> (create-state "")
+                   (hover [0 0])
+                   (cell-hovered? [0 0]))))}
+  [state cell]
+  (update state :hovered-cells
+          (fn [hovered-cells]
+            (conj hovered-cells cell))))
 
 
 

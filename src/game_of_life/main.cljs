@@ -2,7 +2,9 @@
   (:require [reagent.core :refer [render-component]]
             [game-of-life.core :refer [create-state
                                        next-generation
-                                       toggle-cell]]
+                                       toggle-alive
+                                       unhover
+                                       hover]]
             [game-of-life.component.app :refer [app-component]]))
 
 (enable-console-print!)
@@ -16,6 +18,7 @@
 (defonce app-state-atom (atom (list initial-state)))
 
 (defn handle-event! [{name :name data :data}]
+
   (println "Name" name data)
   (cond (= name :next-generation)
         (swap! app-state-atom (fn [app-state]
@@ -23,16 +26,29 @@
 
         (= name :cell-click)
         (swap! app-state-atom (fn [app-state]
-                                (conj app-state (toggle-cell (first app-state) data))))
+                                (conj app-state (toggle-alive (first app-state) data))))
 
         (= name :prev-generation)
         (when (> (count @app-state-atom) 1)
-          (swap! app-state-atom (fn [app-state] (drop 1 app-state))))))
+          (swap! app-state-atom (fn [app-state] (drop 1 app-state))))
+
+        (= name :cell-enter)
+        (swap! app-state-atom (fn [[head & tail]]
+                                (conj tail (hover head data))))
+
+        (= name :cell-enter)
+        (swap! app-state-atom (fn [[head & tail]]
+                                (conj tail (hover head data))))
+
+        (= name :cell-leave)
+        (swap! app-state-atom (fn [[head & tail]]
+                                (conj tail (unhover head data))))
+        ))
 
 (defn render! []
   (render-component [app-component {:state         (first @app-state-atom)
                                     :trigger-event handle-event!}]
-                    (. js/document (getElementById "app"))))
+                    (js/document.getElementById "app")))
 
 (add-watch app-state-atom
            :main-watch
