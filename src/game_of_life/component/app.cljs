@@ -36,7 +36,6 @@
                                       "scale(0)")}}]])
 
 (defn create-cell-row [y state viewport-width event-chan]
-  (println (str "Create row of width " viewport-width))
   [:div {:class "row"
          :key   y
          :style {:display "flex"}}

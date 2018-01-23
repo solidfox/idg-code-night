@@ -1,5 +1,5 @@
 (ns game-of-life.main
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go-loop]])
   (:require [reagent.core :refer [render]]
             [cljs.core.async :refer [<! chan]]
             [game-of-life.core :refer [create-state
@@ -36,16 +36,14 @@
                           :event-chan event-chan}]
                     (js/document.getElementById "app")))
 
-(defn event-loop [state-timeline, event-chan]
-  (render! (first state-timeline) event-chan)
-  (go (event-loop
-    (handle-event state-timeline (<! event-chan))
-    event-chan)))
-
 (def initial-state (create-state ""
                                  "###  "
                                  "  ###"
                                  " ### "
                                  "  #  "))
 
-(go (event-loop (list initial-state) (chan)))
+(def event-chan (chan))
+
+(go-loop [state-timeline (list initial-state)]
+         (render! (first state-timeline) event-chan)
+         (recur (handle-event state-timeline (<! event-chan))))
